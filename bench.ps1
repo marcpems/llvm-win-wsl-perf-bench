@@ -104,7 +104,7 @@ if (-not $SkipWSL -and $WslBuildDir.StartsWith('~')) {
 $problems = @(Test-Prerequisites -WinBuildDir $WinBuildDir -WslDistro $WslDistro -WslBuildDir $WslBuildDir -SkipWSL:$SkipWSL -Defender $Defender)
 if ($problems.Count -gt 0) {
     Write-Host "Prerequisite checks failed. This script does not install/build anything automatically." -ForegroundColor Red
-    Write-Host "Resolve each item below, then re-run.`n" -ForegroundColor Red
+    Write-Host "Most build-tree problems below can be fixed by running: .\setup.ps1`n" -ForegroundColor Red
     foreach ($p in $problems) {
         Write-Host "PROBLEM: $($p.Message)" -ForegroundColor Yellow
         Write-Host "REMEDY:`n$($p.Remedy)`n"

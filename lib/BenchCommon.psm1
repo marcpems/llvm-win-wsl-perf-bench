@@ -63,27 +63,13 @@ function Test-Prerequisites {
     if (-not (Test-Path $WinBuildDir)) {
         $problems += @{
             Message = "Windows LLVM build tree not found at '$WinBuildDir'."
-            Remedy  = @"
-Build it first (single-stage Release build, no LTO/PGO/PDB needed - this
-harness only measures raw test-suite/process/filesystem performance):
-
-  git worktree add --detach D:\llvm-perf-test-win <commit-or-branch>
-  cmd /c "call `"C:\Program Files\Microsoft Visual Studio\<ver>\<edition>\VC\Auxiliary\Build\vcvarsarm64.bat`" && ^
-    mkdir D:\llvm-perf-test-win\build-release && cd /d D:\llvm-perf-test-win\build-release && ^
-    cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl ^
-      -DLLVM_USE_LINKER=lld -DLLVM_ENABLE_PROJECTS=`"clang;lld;clang-tools-extra`" ^
-      -DLLVM_ENABLE_RUNTIMES=`"compiler-rt`" -DLLVM_TARGETS_TO_BUILD=AArch64 ^
-      -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF D:\llvm-perf-test-win\llvm && ^
-    ninja check-llvm check-clang check-lld"
-
-Then re-run this script with -WinBuildDir pointing at the build-release directory.
-"@
+            Remedy  = "Run the setup script to build it automatically: .\setup.ps1 -WinBuildDir `"$WinBuildDir`"`nSee README.md for what it does and its own prerequisites (git/cmake/ninja/clang-cl)."
         }
     }
     elseif (-not (Test-Path $winLit) -or -not (Test-Path $winFileCheck)) {
         $problems += @{
             Message = "Windows build tree at '$WinBuildDir' exists but is missing bin\llvm-lit.cmd or bin\FileCheck.exe."
-            Remedy  = "Build the 'check-llvm' (or FileCheck + llvm-lit) targets in that tree with ninja, then re-run."
+            Remedy  = "Run the setup script to finish building it: .\setup.ps1 -WinBuildDir `"$WinBuildDir`""
         }
     }
 
@@ -136,15 +122,7 @@ Then re-run this script with -WinBuildDir pointing at the build-release director
                         if ($wslLitCheck -notmatch 'FOUND') {
                             $problems += @{
                                 Message = "WSL build tree at '$WslBuildDir' is missing or missing bin/llvm-lit or bin/FileCheck."
-                                Remedy  = @"
-Build it first on WSL's native filesystem (not /mnt/...):
-
-  wsl -d $WslDistro -- bash -lc 'sudo apt-get update && sudo apt-get install -y build-essential cmake ninja-build clang lld git'
-  wsl -d $WslDistro -- bash -lc 'git clone --no-hardlinks /mnt/<path-to-windows-checkout> ~/llvm-perf-test-wsl && cd ~/llvm-perf-test-wsl && git checkout <same-commit-as-windows-tree>'
-  wsl -d $WslDistro -- bash -lc 'mkdir -p ~/llvm-perf-test-wsl/build-release && cd ~/llvm-perf-test-wsl/build-release && CC=clang CXX=clang++ cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_USE_LINKER=lld -DLLVM_ENABLE_PROJECTS="clang;lld;clang-tools-extra" -DLLVM_ENABLE_RUNTIMES="compiler-rt" -DLLVM_TARGETS_TO_BUILD=AArch64 -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF ../llvm && ninja check-llvm check-clang check-lld'
-
-Then re-run this script with -WslBuildDir set to that build-release path (as seen from inside WSL).
-"@
+                                Remedy  = "Run the setup script to build it automatically: .\setup.ps1 -WslDistro $WslDistro -WslBuildDir `"$WslBuildDir`"`nSee README.md for what it does and its own prerequisites."
                             }
                         }
                     }
