@@ -1,0 +1,9 @@
+# Timestamped result files are run-local measurements, not part of the tool.
+# Keep the directory (see results/.gitkeep) but don't track individual runs
+# by default. Commit specific result files yourself if you want to keep a
+# historical record in version control.
+results/*.md
+results/*.csv
+!results/.gitkeep
+
+full-mode-test.log
