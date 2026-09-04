@@ -130,10 +130,15 @@ budget. It is therefore used as the fixed, fast, representative canary for
 
 Each run writes a timestamped Markdown report and a CSV (one row per
 measurement, for easy historical diffing across repeated runs) to
-`-OutputDir` (default `.\results\`). The report's final "Summary" section
-states only plain measured numbers from that run — it does not draw
-conclusions or attribute causes; that interpretation is left to the
-original investigation report and to your own comparison across runs.
+`-OutputDir` (default `.\results\`). Individual timestamped result files
+are gitignored by default (they're specific to your own machine/run), but
+`results/samples/` contains two committed example outputs from a real run
+on one machine (`example-tight-run.md`/`.csv` and `example-full-run.md`/
+`.csv`) so you can see the exact report shape without running it first.
+The report's final "Summary" section states only plain measured numbers
+from that run — it does not draw conclusions or attribute causes; that
+interpretation is left to the original investigation report and to your
+own comparison across runs.
 
 ## Capability detection
 

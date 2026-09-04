@@ -1,0 +1,6 @@
+"Timestamp","Mode","Category","Test","WinSeconds","WslSeconds","WinPass","WinFail","WinTotal","WslPass","WslFail","WslTotal"
+"2026-09-04_11-09-07","Full","Microbench","Process spawn x200","3.25","0.12","","","","","",""
+"2026-09-04_11-09-07","Full","Microbench","Create+delete 2000 1-byte files","0.69","0.11","","","","","",""
+"2026-09-04_11-09-07","Full","LitSuite","check-llvm (full)","1226.62","152.5","34588","46","77249","34766","46","77281"
+"2026-09-04_11-09-07","Full","LitSuite","check-clang (full)","4233.22","929.1","48939","32","54547","49295","26","54639"
+"2026-09-04_11-09-07","Full","LitSuite","check-lld (full)","70.83","42.06","527","0","3255","534","0","3255"
