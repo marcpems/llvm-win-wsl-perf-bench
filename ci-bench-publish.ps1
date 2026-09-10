@@ -103,7 +103,7 @@ foreach ($r in $rows) {
     $section += "| $($r.Runner) | $($r.OsVersion) | $($r.Arch) | $($r.Cpu) | $($r.LogicalCores) | $($r.MemGB) | $($r.SpawnSec) | $($r.FileSec) | $($r.BuildSec) | $($r.LitWallSec) | $($r.LitPassFailTotal) |"
 }
 $section += ""
-$section += "Full history: [`results/CI-RESULTS.md`](results/CI-RESULTS.md) and [`results/ci-runs/`](results/ci-runs/)."
+$section += 'Full history: [`results/CI-RESULTS.md`](results/CI-RESULTS.md) and [`results/ci-runs/`](results/ci-runs/).'
 $section += ""
 $section += $endMarker
 $sectionText = $section -join "`n"
