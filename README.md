@@ -205,8 +205,11 @@ arbitrary PR code. Dispatch it from the Actions tab or:
 gh workflow run wsl-bench.yml -f mode=Tight -f runner_label=wsl-bench -f wsl_distro=Ubuntu-24.04
 ```
 
-Results are uploaded as an artifact and committed back to `results/` the
-same way as `ci-bench.yml`.
+Results are uploaded as an artifact and committed back to the repo: the
+latest report is kept at
+[`results/WSL-BENCH-RESULTS.md`](results/WSL-BENCH-RESULTS.md), with every
+individual run's full report kept under `results/wsl-runs/<run-id>/` so
+historical runs stay inspectable (same pattern as `ci-bench.yml`).
 
 ## Troubleshooting
 

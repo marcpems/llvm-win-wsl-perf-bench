@@ -6,5 +6,8 @@ results/*.md
 results/*.csv
 !results/.gitkeep
 !results/CI-RESULTS.md
+!results/WSL-BENCH-RESULTS.md
+!results/wsl-runs/
+!results/wsl-runs/**
 
 full-mode-test.log

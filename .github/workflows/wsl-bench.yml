@@ -99,15 +99,29 @@ jobs:
         run: |
           $distroArgs = @()
           if ('${{ inputs.wsl_distro }}') { $distroArgs = @('-WslDistro', '${{ inputs.wsl_distro }}') }
-          .\bench.ps1 -Mode '${{ inputs.mode }}' @distroArgs -OutputDir results
+          $runDir = "results/wsl-runs/$env:GITHUB_RUN_ID"
+          New-Item -ItemType Directory -Force -Path $runDir | Out-Null
+          .\bench.ps1 -Mode '${{ inputs.mode }}' @distroArgs -OutputDir $runDir
+
+          # bench.ps1's own output is gitignored under results/*.md by
+          # design (personal/local runs); publish this CI run's report
+          # under results/wsl-runs/<run-id>/ (explicitly un-ignored) and
+          # also copy the latest one to a stable, discoverable filename.
+          $latestMd = Get-ChildItem $runDir -Filter '*.md' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if ($latestMd) {
+            Copy-Item $latestMd.FullName 'results/WSL-BENCH-RESULTS.md' -Force
+            "Published latest WSL bench results: results/WSL-BENCH-RESULTS.md (from $($latestMd.Name))"
+          } else {
+            Write-Host "::warning::bench.ps1 produced no .md report in $runDir"
+          }
 
       - name: Upload bench results artifact
         uses: actions/upload-artifact@v4
         with:
           name: wsl-bench-results
           path: |
-            results/*.md
-            results/*.csv
+            results/wsl-runs/${{ github.run_id }}/*.md
+            results/wsl-runs/${{ github.run_id }}/*.csv
           if-no-files-found: warn
 
       - name: Commit results back to repo
@@ -115,7 +129,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add results/*.md results/*.csv
+          git add "results/wsl-runs/$env:GITHUB_RUN_ID" results/WSL-BENCH-RESULTS.md
           git diff --cached --quiet
           if ($LASTEXITCODE -eq 0) {
             Write-Host "No new result files to commit."
