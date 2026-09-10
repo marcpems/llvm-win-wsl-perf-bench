@@ -183,7 +183,7 @@ Write-Host "`n-- Configuring (generator: Ninja) --"
 cmake @configArgs
 if ($LASTEXITCODE -ne 0) { throw "cmake configure failed with exit code $LASTEXITCODE" }
 
-$buildTargets = @('llvm-reduce', 'FileCheck', 'count', 'not', 'split-file')
+$buildTargets = @('llvm-reduce', 'FileCheck', 'count', 'not', 'split-file', 'llvm-config')
 Write-Host "-- Building targets: $($buildTargets -join ', ') (-j $Jobs) --"
 $buildSw = [System.Diagnostics.Stopwatch]::StartNew()
 cmake --build $buildDir --target @buildTargets --parallel $Jobs 2>&1 | ForEach-Object { $_ }
