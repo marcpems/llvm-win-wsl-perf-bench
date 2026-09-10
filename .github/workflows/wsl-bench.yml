@@ -73,6 +73,18 @@ jobs:
         with:
           arch: ${{ runner.arch == 'ARM64' && 'arm64' || 'amd64' }}
 
+      - name: Add standalone LLVM/clang-cl to PATH (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $llvmBin = 'C:\Program Files\LLVM\bin'
+          if (Test-Path (Join-Path $llvmBin 'clang-cl.exe')) {
+            Add-Content -Path $env:GITHUB_PATH -Value $llvmBin
+            Write-Host "Added $llvmBin to PATH"
+          } else {
+            Write-Host "::warning::clang-cl.exe not found at $llvmBin - setup.ps1 will fail its prerequisite check. Install LLVM (e.g. 'winget install LLVM.LLVM') on this runner."
+          }
+
       - name: Ensure build trees exist (setup.ps1)
         shell: pwsh
         run: |
