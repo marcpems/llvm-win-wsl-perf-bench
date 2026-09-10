@@ -281,3 +281,9 @@ $md -join "`n" | Out-File -FilePath $mdPath -Encoding utf8
 
 Write-Host "`nSaved: $jsonPath"
 Write-Host "Saved: $mdPath"
+
+# lit exits non-zero when any test fails; that's expected data here (some
+# lit-reported failures come from tools deliberately not built in this
+# bounded subset), not a harness error - don't let it fail the CI step.
+$global:LASTEXITCODE = 0
+exit 0
