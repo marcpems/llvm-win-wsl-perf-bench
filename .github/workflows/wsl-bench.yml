@@ -9,11 +9,16 @@ name: Windows-vs-WSL perf bench (self-hosted)
 # Requirements on the self-hosted runner (see README "Design notes" /
 # setup.ps1 header for full detail):
 #   - Registered to this repo with the label used below (default:
-#     wsl-bench)
-#   - WSL2 installed with a distro (default: Ubuntu-24.04) and passwordless
-#     sudo configured for the runner service account
+#     wsl-bench) - currently: marcpe-d3-perfbench (ARM64), a second runner
+#     instance on the same machine as the llvm-project GB300 runner,
+#     registered separately to this repo since self-hosted runners are
+#     tied to a single repo on a personal GitHub account.
+#   - WSL2 installed with a distro and passwordless sudo configured for
+#     the runner service account (WslDistro auto-detects if not passed
+#     explicitly - see Get-DefaultWslDistro in lib/BenchCommon.psm1)
 #   - Windows-side build prerequisites (VS Build Tools/clang-cl, CMake,
-#     Ninja) already installed
+#     Ninja) already installed - clang-cl is put on PATH via
+#     ilammy/msvc-dev-cmd@v1 below (arch auto-detected from runner.arch)
 #
 # Deliberately workflow_dispatch-only: self-hosted runners must never be
 # triggered from pull_request/schedule on this public repo (arbitrary PR
@@ -32,9 +37,9 @@ on:
         type: string
         default: wsl-bench
       wsl_distro:
-        description: 'WSL distro name (see `wsl -l -v` on the runner)'
+        description: 'WSL distro name (see `wsl -l -v` on the runner). Leave empty to auto-detect.'
         type: string
-        default: Ubuntu-24.04
+        default: ''
       commit:
         description: 'LLVM commit/branch to build for the bench trees'
         type: string
@@ -63,17 +68,26 @@ jobs:
           Write-Host "Running on: $env:COMPUTERNAME"
           wsl -l -v
 
+      - name: Set up MSVC dev environment (clang-cl)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ runner.arch == 'ARM64' && 'arm64' || 'amd64' }}
+
       - name: Ensure build trees exist (setup.ps1)
         shell: pwsh
         run: |
           $forceFlag = @()
           if ('${{ inputs.force_setup }}' -eq 'true') { $forceFlag = @('-Force') }
-          .\setup.ps1 -Commit '${{ inputs.commit }}' -WslDistro '${{ inputs.wsl_distro }}' @forceFlag
+          $distroArgs = @()
+          if ('${{ inputs.wsl_distro }}') { $distroArgs = @('-WslDistro', '${{ inputs.wsl_distro }}') }
+          .\setup.ps1 -Commit '${{ inputs.commit }}' @distroArgs @forceFlag
 
       - name: Run Windows-vs-WSL bench
         shell: pwsh
         run: |
-          .\bench.ps1 -Mode '${{ inputs.mode }}' -WslDistro '${{ inputs.wsl_distro }}' -OutputDir results
+          $distroArgs = @()
+          if ('${{ inputs.wsl_distro }}') { $distroArgs = @('-WslDistro', '${{ inputs.wsl_distro }}') }
+          .\bench.ps1 -Mode '${{ inputs.mode }}' @distroArgs -OutputDir results
 
       - name: Upload bench results artifact
         uses: actions/upload-artifact@v4
@@ -88,13 +102,17 @@ jobs:
         shell: pwsh
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add results/*.md results/*.csv
           git diff --cached --quiet
           if ($LASTEXITCODE -eq 0) {
             Write-Host "No new result files to commit."
           } else {
             git commit -m "wsl-bench: results for run $env:GITHUB_RUN_ID ($env:GITHUB_SHA)"
-            git pull --rebase origin master
+            # This job can run for a long time (full LLVM builds); master may
+            # have moved since checkout, and the checkout is shallow, so
+            # unshallow before rebasing onto the current remote tip.
+            git fetch --unshallow origin master 2>&1 | Out-Null
+            git rebase origin/master
             git push origin HEAD:master
           }

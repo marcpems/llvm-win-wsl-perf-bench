@@ -35,7 +35,9 @@
     to bench.ps1's -WinBuildDir.
 
 .PARAMETER WslDistro
-    WSL distro name to use (see `wsl -l -v`).
+    WSL distro name to use (see `wsl -l -v`). If omitted, auto-detects the
+    default (or first) installed WSL2 distro - lets this run unattended in
+    CI without knowing the distro name in advance.
 
 .PARAMETER WslWorktreeDir
     Where (inside WSL, on its native filesystem - must not be under
@@ -74,7 +76,7 @@ param(
     [string]$WinWorktreeDir = 'D:\llvm-perf-test-win',
     [string]$WinBuildDir = 'D:\llvm-perf-test-win\build-release',
 
-    [string]$WslDistro = 'Ubuntu-24.04',
+    [string]$WslDistro,
     [string]$WslWorktreeDir = '~/llvm-perf-test-wsl',
     [string]$WslBuildDir = '~/llvm-perf-test-wsl/build-release',
 
@@ -130,6 +132,13 @@ if (-not $SkipWSL) {
     Write-Step "Checking WSL"
     if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
         Fail "wsl.exe was not found on PATH." "Install WSL2: open an Administrator PowerShell and run 'wsl --install', reboot, install a distro, then re-run this script. Or pass -SkipWSL to set up the Windows side only."
+    }
+    if (-not $WslDistro) {
+        $WslDistro = Get-DefaultWslDistro
+        if (-not $WslDistro) {
+            Fail "No -WslDistro specified and no installed WSL2 distro could be auto-detected." "Install one (e.g. 'wsl --install -d Ubuntu-24.04') or pass -WslDistro <name> (see 'wsl -l -v' for installed distros)."
+        }
+        Write-Ok "Auto-detected WSL distro: $WslDistro"
     }
     $listOut = (& wsl.exe -l -v 2>&1 | Out-String) -replace "`0", ''
     if ($listOut -notmatch [regex]::Escape($WslDistro)) {

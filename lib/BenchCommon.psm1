@@ -33,6 +33,45 @@ function Invoke-Wsl {
     return ($out -join "`n")
 }
 
+function Get-DefaultWslDistro {
+    <#
+        Auto-detects which installed WSL distro to use, so this benchmark
+        can run unattended (e.g. from CI on a self-hosted runner) without
+        anyone having to know/pass the exact distro name in advance.
+
+        Preference order:
+          1. The distro `wsl -l -v` marks as the default (leading '*').
+          2. If no default is marked (or it's WSL1), the first WSL2 distro
+             found in the list, in listed order.
+        Returns $null if wsl.exe isn't present or no WSL2 distro is found -
+        callers should fall back to their normal explicit-name error path
+        in that case (never silently pick a WSL1 distro).
+    #>
+    if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) { return $null }
+
+    $listOut = (& wsl.exe -l -v 2>&1 | Out-String) -replace "`0", ''
+    if ($LASTEXITCODE -ne 0 -or -not $listOut.Trim()) { return $null }
+
+    $candidates = @()
+    foreach ($line in ($listOut -split "`r?`n")) {
+        if ($line -match '^(?<default>\*?)\s*(?<name>\S+)\s+(?<state>\S+)\s+(?<version>\d+)\s*$') {
+            if ($Matches['name'] -eq 'NAME') { continue } # header row
+            $candidates += [pscustomobject]@{
+                Name      = $Matches['name']
+                IsDefault = ($Matches['default'] -eq '*')
+                Version   = [int]$Matches['version']
+            }
+        }
+    }
+
+    $wsl2 = $candidates | Where-Object { $_.Version -eq 2 }
+    if (-not $wsl2) { return $null }
+
+    $default = $wsl2 | Where-Object { $_.IsDefault } | Select-Object -First 1
+    if ($default) { return $default.Name }
+    return ($wsl2 | Select-Object -First 1).Name
+}
+
 function Test-Prerequisites {
     <#
         Verifies every tool/path this benchmark needs is already present.

@@ -34,7 +34,8 @@
     (must contain bin\llvm-lit.cmd and bin\FileCheck.exe).
 
 .PARAMETER WslDistro
-    Name of the WSL distro to use (see `wsl -l -v`).
+    Name of the WSL distro to use (see `wsl -l -v`). If omitted, auto-
+    detects the default (or first) installed WSL2 distro.
 
 .PARAMETER WslBuildDir
     Path (as seen from inside WSL) to a pre-built LLVM build tree on WSL's
@@ -70,7 +71,7 @@ param(
 
     [string]$WinBuildDir = 'D:\llvm-perf-test-win\build-release',
 
-    [string]$WslDistro = 'Ubuntu-24.04',
+    [string]$WslDistro,
 
     [string]$WslBuildDir = '~/llvm-perf-test-wsl/build-release',
 
@@ -93,6 +94,18 @@ Import-Module (Join-Path $PSScriptRoot 'lib\BenchCommon.psm1') -Force
 
 Write-Host "== Windows vs WSL LLVM build/test performance benchmark ==" -ForegroundColor Cyan
 Write-Host "Mode: $Mode | Defender: $Defender | SkipWSL: $($SkipWSL.IsPresent)`n"
+
+# --- Auto-detect the WSL distro if none was passed, so this can run
+# unattended in CI without anyone hardcoding a distro name in advance ---
+if (-not $SkipWSL -and -not $WslDistro) {
+    $WslDistro = Get-DefaultWslDistro
+    if (-not $WslDistro) {
+        Write-Host "No -WslDistro specified and no installed WSL2 distro could be auto-detected." -ForegroundColor Red
+        Write-Host "REMEDY:`nInstall one (e.g. 'wsl --install -d Ubuntu-24.04') or pass -WslDistro <name> (see 'wsl -l -v' for installed distros)."
+        exit 1
+    }
+    Write-Host "Auto-detected WSL distro: $WslDistro" -ForegroundColor Green
+}
 
 # --- Resolve the WSL build dir's literal tilde now, before any prerequisite checks use it in path comparisons ---
 if (-not $SkipWSL -and $WslBuildDir.StartsWith('~')) {
