@@ -30,8 +30,10 @@ jobs:
         include:
           - os: windows-latest
             label: windows-x64
+            msvc_arch: amd64
           - os: windows-11-arm
             label: windows-arm64
+            msvc_arch: arm64
           - os: ubuntu-latest
             label: linux-x64
     runs-on: ${{ matrix.os }}
@@ -40,9 +42,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Ninja (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: Install Ninja
+        shell: pwsh
+        run: |
+          $py = if (Get-Command python3 -ErrorAction SilentlyContinue) { 'python3' } else { 'python' }
+          & $py -m pip install --user ninja
+          $userBase = (& $py -m site --user-base).Trim()
+          $scriptsDir = if ($IsWindows) { Join-Path $userBase 'Scripts' } else { Join-Path $userBase 'bin' }
+          Add-Content -Path $env:GITHUB_PATH -Value $scriptsDir
+          Write-Host "Added $scriptsDir to PATH for later steps"
+
+      - name: Set up MSVC dev environment (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc_arch }}
 
       - name: Run ci-bench.ps1
         shell: pwsh

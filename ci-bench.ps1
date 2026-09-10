@@ -161,11 +161,16 @@ if (-not (Test-Path (Join-Path $srcDir '.git'))) {
     Pop-Location
 }
 
-$generator = if ($IsWindows) { 'Visual Studio 17 2022' } else { 'Ninja' }
+# Ninja + single-config Release everywhere (Windows included) - this needs
+# cl.exe/link.exe already on PATH on Windows (the workflow sets that up via
+# the ilammy/msvc-dev-cmd action before calling this script), which is more
+# robust on hosted runners than relying on CMake's Visual Studio generator
+# probing (that generator has intermittently failed to find VS at all on
+# some hosted Windows images/architectures).
 $configArgs = @(
     '-S', (Join-Path $srcDir 'llvm'),
     '-B', $buildDir,
-    '-G', $generator,
+    '-G', 'Ninja',
     '-DCMAKE_BUILD_TYPE=Release',
     '-DLLVM_ENABLE_PROJECTS=llvm',
     '-DLLVM_TARGETS_TO_BUILD=Native',
@@ -173,23 +178,17 @@ $configArgs = @(
     '-DLLVM_INCLUDE_BENCHMARKS=OFF',
     '-DLLVM_INCLUDE_EXAMPLES=OFF'
 )
-if ($IsWindows) { $configArgs += '-Thost=x64' }
 
-Write-Host "`n-- Configuring (generator: $generator) --"
+Write-Host "`n-- Configuring (generator: Ninja) --"
 cmake @configArgs
+if ($LASTEXITCODE -ne 0) { throw "cmake configure failed with exit code $LASTEXITCODE" }
 
 $buildTargets = @('llvm-reduce', 'FileCheck', 'count', 'not', 'split-file')
 Write-Host "-- Building targets: $($buildTargets -join ', ') (-j $Jobs) --"
 $buildSw = [System.Diagnostics.Stopwatch]::StartNew()
-if ($IsWindows) {
-    cmake --build $buildDir --config Release --target @buildTargets --parallel $Jobs 2>&1 |
-        ForEach-Object { $_ } # stream build output, don't buffer the whole log in memory
-    $binDir = Join-Path $buildDir 'Release\bin'
-}
-else {
-    cmake --build $buildDir --target @buildTargets --parallel $Jobs 2>&1 | ForEach-Object { $_ }
-    $binDir = Join-Path $buildDir 'bin'
-}
+cmake --build $buildDir --target @buildTargets --parallel $Jobs 2>&1 | ForEach-Object { $_ }
+if ($LASTEXITCODE -ne 0) { throw "cmake --build failed with exit code $LASTEXITCODE" }
+$binDir = Join-Path $buildDir 'bin'
 $buildSw.Stop()
 $buildSeconds = [math]::Round($buildSw.Elapsed.TotalSeconds, 2)
 Write-Host "Build took $buildSeconds s"
