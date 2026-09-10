@@ -175,9 +175,17 @@ every individual run's raw JSON/Markdown is kept under
 `results/ci-runs/<run-id>/` so historical runs stay inspectable.
 
 <!-- CI-BENCH-RESULTS:START -->
-_No CI perf-bench run has published results yet - trigger
-`.github/workflows/ci-bench.yml` (or wait for its weekly schedule) to
-populate this section._
+
+### Results (2026-09-10_18-54-12 UTC, LLVM @ main)
+
+| Runner | OS | Arch | CPU | Logical cores | RAM (GB) | Spawn x200 (s) | File x2000 (s) | Build (s) | lit wall (s) | lit P/F/Total |
+|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|
+| linux-x64 | Ubuntu 24.04.5 LTS | X64 | AMD EPYC 9V74 80-Core Processor | 4 | 15.6 | 0.21 | 0.71 | 1982.85 | 25.43 | 166/11/205 |
+| windows-arm64 | Microsoft Windows 11 Enterprise (10.0.26200) | Arm64 | Cobalt 100 | 4 | 16 | 2.63 | 2.32 | 1425.65 | 107.54 | 166/8/205 |
+| windows-x64 | Microsoft Windows Server 2025 Datacenter (10.0.26100) | X64 | AMD EPYC 9V74 80-Core Processor | 4 | 16 | 1.7 | 1.96 | 2132.53 | 58.51 | 165/11/205 |
+
+Full history: [esults/CI-RESULTS.md](results/CI-RESULTS.md) and [esults/ci-runs/](results/ci-runs/).
+
 <!-- CI-BENCH-RESULTS:END -->
 
 ## Troubleshooting
