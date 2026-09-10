@@ -1,0 +1,100 @@
+name: Windows-vs-WSL perf bench (self-hosted)
+
+# Runs the REAL Windows-vs-WSL comparison (bench.ps1 / setup.ps1) on a
+# self-hosted Windows runner that has WSL2 + a Linux distro installed.
+# GitHub-hosted runners cannot do this (see ci-bench.yml for the
+# hosted-runner, single-machine-per-OS alternative) - there is no WSL guest
+# available on windows-latest/windows-11-arm images.
+#
+# Requirements on the self-hosted runner (see README "Design notes" /
+# setup.ps1 header for full detail):
+#   - Registered to this repo with the label used below (default:
+#     wsl-bench)
+#   - WSL2 installed with a distro (default: Ubuntu-24.04) and passwordless
+#     sudo configured for the runner service account
+#   - Windows-side build prerequisites (VS Build Tools/clang-cl, CMake,
+#     Ninja) already installed
+#
+# Deliberately workflow_dispatch-only: self-hosted runners must never be
+# triggered from pull_request/schedule on this public repo (arbitrary PR
+# code would execute on real, persistent hardware).
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Bench mode'
+        type: choice
+        options: [Tight, Full]
+        default: Tight
+      runner_label:
+        description: 'Self-hosted runner label to target'
+        type: string
+        default: wsl-bench
+      wsl_distro:
+        description: 'WSL distro name (see `wsl -l -v` on the runner)'
+        type: string
+        default: Ubuntu-24.04
+      commit:
+        description: 'LLVM commit/branch to build for the bench trees'
+        type: string
+        default: main
+      force_setup:
+        description: 'Force setup.ps1 to rebuild trees even if present'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  wsl-bench:
+    # Label is chosen at dispatch time (defaults to 'wsl-bench' above);
+    # runs-on supports expressions so the actual label used by the
+    # self-hosted runner registration can be overridden per-dispatch.
+    runs-on: [self-hosted, Windows, '${{ inputs.runner_label }}']
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Report runner identity
+        shell: pwsh
+        run: |
+          Write-Host "Running on: $env:COMPUTERNAME"
+          wsl -l -v
+
+      - name: Ensure build trees exist (setup.ps1)
+        shell: pwsh
+        run: |
+          $forceFlag = @()
+          if ('${{ inputs.force_setup }}' -eq 'true') { $forceFlag = @('-Force') }
+          .\setup.ps1 -Commit '${{ inputs.commit }}' -WslDistro '${{ inputs.wsl_distro }}' @forceFlag
+
+      - name: Run Windows-vs-WSL bench
+        shell: pwsh
+        run: |
+          .\bench.ps1 -Mode '${{ inputs.mode }}' -WslDistro '${{ inputs.wsl_distro }}' -OutputDir results
+
+      - name: Upload bench results artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wsl-bench-results
+          path: |
+            results/*.md
+            results/*.csv
+          if-no-files-found: warn
+
+      - name: Commit results back to repo
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add results/*.md results/*.csv
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "No new result files to commit."
+          } else {
+            git commit -m "wsl-bench: results for run $env:GITHUB_RUN_ID ($env:GITHUB_SHA)"
+            git pull --rebase origin master
+            git push origin HEAD:master
+          }

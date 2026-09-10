@@ -188,6 +188,26 @@ Full history: [`results/CI-RESULTS.md`](results/CI-RESULTS.md) and [`results/ci-
 
 <!-- CI-BENCH-RESULTS:END -->
 
+## Real Windows-vs-WSL bench in CI (self-hosted runner)
+
+`ci-bench.yml` above cannot produce an actual Windows-vs-WSL ratio, because
+GitHub-hosted runners have no WSL guest available. If you register your own
+**self-hosted Windows runner with WSL2 installed** (see `setup.ps1`'s header
+for prerequisites: a distro with passwordless `sudo`, plus Windows-side
+CMake/Ninja/clang-cl), [`.github/workflows/wsl-bench.yml`](.github/workflows/wsl-bench.yml)
+runs the real `bench.ps1` comparison there instead.
+
+It is `workflow_dispatch`-only (never on `pull_request`/schedule) since a
+self-hosted runner executes on real, persistent hardware and must not run
+arbitrary PR code. Dispatch it from the Actions tab or:
+
+```powershell
+gh workflow run wsl-bench.yml -f mode=Tight -f runner_label=wsl-bench -f wsl_distro=Ubuntu-24.04
+```
+
+Results are uploaded as an artifact and committed back to `results/` the
+same way as `ci-bench.yml`.
+
 ## Troubleshooting
 
 | Symptom | Fix |
