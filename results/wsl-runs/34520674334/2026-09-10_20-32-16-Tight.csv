@@ -1,0 +1,4 @@
+"Timestamp","Mode","Category","Test","WinSeconds","WslSeconds","WinPass","WinFail","WinTotal","WslPass","WslFail","WslTotal"
+"2026-09-10_20-32-16","Tight","Microbench","Process spawn x200","2.92","0.12","","","","","",""
+"2026-09-10_20-32-16","Tight","Microbench","Create+delete 2000 1-byte files","0.65","0.12","","","","","",""
+"2026-09-10_20-32-16","Tight","LitSuite","LLVM::tools/llvm-reduce","121.09","30.77","174","0","205","175","0","205"
