@@ -1,0 +1,86 @@
+name: CI perf-bench
+
+# Self-contained perf-bench (ci-bench.ps1) across GitHub-hosted runner
+# types: Windows x64, Windows ARM64 (Preview), and a bare-bones Linux x64
+# runner. Unlike bench.ps1 (which needs pre-built trees via setup.ps1 and
+# compares a single Windows host against WSL), each matrix leg here builds
+# a small, fixed subset of LLVM itself and reports absolute numbers plus
+# full machine spec, so runner types can be compared directly.
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: 'LLVM commit/tag/branch to benchmark'
+        default: 'main'
+        required: false
+  schedule:
+    # Weekly, Monday 06:00 UTC - keeps historical numbers fresh without
+    # burning CI minutes on every push.
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: write
+
+jobs:
+  bench:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: windows-x64
+          - os: windows-11-arm
+            label: windows-arm64
+          - os: ubuntu-latest
+            label: linux-x64
+    runs-on: ${{ matrix.os }}
+    env:
+      CI_BENCH_RUNNER_LABEL: ${{ matrix.label }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Run ci-bench.ps1
+        shell: pwsh
+        run: |
+          ./ci-bench.ps1 `
+            -Commit '${{ github.event.inputs.commit || 'main' }}' `
+            -OutputDir 'results/ci-runs/${{ github.run_id }}'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ci-bench-${{ matrix.label }}
+          path: results/ci-runs/${{ github.run_id }}/**
+          retention-days: 90
+
+  publish:
+    needs: bench
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: results/ci-runs/${{ github.run_id }}
+          pattern: ci-bench-*
+          merge-multiple: true
+
+      - name: Aggregate results + update README/CI-RESULTS.md
+        shell: pwsh
+        run: |
+          ./ci-bench-publish.ps1 -RunId '${{ github.run_id }}' -ResultsDir 'results/ci-runs/${{ github.run_id }}' -RepoRoot '.'
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results/ci-runs/${{ github.run_id }} results/CI-RESULTS.md README.md
+          git diff --cached --quiet && echo "Nothing to commit" || git commit -m "ci-bench: results for run ${{ github.run_id }}"
+          git push

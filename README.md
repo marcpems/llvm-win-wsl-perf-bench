@@ -154,6 +154,32 @@ RAM (Windows) vs 6.9 GB (WSL); 55 GB free disk (Windows) vs 927 GB (WSL).
 | `check-lld` wall time | 70.83 s | 42.06 s | 1.7x |
 | `check-lld` pass/fail/total | 527/0/3255 | 534/0/3255 | — |
 
+## CI perf-bench (GitHub-hosted runners)
+
+`ci-bench.ps1` is a self-contained variant that needs no pre-built tree and
+runs standalone on a single machine (no WSL side) - used by
+[`.github/workflows/ci-bench.yml`](.github/workflows/ci-bench.yml) to
+benchmark GitHub-hosted **Windows x64**, **Windows ARM64**, and a
+**bare-bones Linux x64** runner independently, every week (and on-demand
+via "Run workflow"). Each leg records full machine spec (CPU model,
+architecture, physical/logical cores, RAM, free disk) plus the same
+process-spawn/filesystem microbenchmarks and a bounded LLVM build (just
+`llvm-reduce` + its dependencies) with its `lit` pass/fail results, so the
+runner types are directly comparable to each other (there is no
+Windows-vs-WSL ratio here, since a hosted Linux runner isn't a WSL guest of
+the Windows leg - each row is an independent absolute measurement).
+
+Results are committed back to the repo automatically: the latest numbers
+are kept below and in [`results/CI-RESULTS.md`](results/CI-RESULTS.md);
+every individual run's raw JSON/Markdown is kept under
+`results/ci-runs/<run-id>/` so historical runs stay inspectable.
+
+<!-- CI-BENCH-RESULTS:START -->
+_No CI perf-bench run has published results yet - trigger
+`.github/workflows/ci-bench.yml` (or wait for its weekly schedule) to
+populate this section._
+<!-- CI-BENCH-RESULTS:END -->
+
 ## Troubleshooting
 
 | Symptom | Fix |
