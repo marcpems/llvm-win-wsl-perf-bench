@@ -183,7 +183,7 @@ Write-Host "`n-- Configuring (generator: Ninja) --"
 cmake @configArgs
 if ($LASTEXITCODE -ne 0) { throw "cmake configure failed with exit code $LASTEXITCODE" }
 
-$buildTargets = @('llvm-reduce', 'FileCheck', 'count', 'not', 'split-file')
+$buildTargets = @('llvm-reduce', 'FileCheck', 'count', 'not', 'split-file', 'llvm-lit')
 Write-Host "-- Building targets: $($buildTargets -join ', ') (-j $Jobs) --"
 $buildSw = [System.Diagnostics.Stopwatch]::StartNew()
 cmake --build $buildDir --target @buildTargets --parallel $Jobs 2>&1 | ForEach-Object { $_ }
@@ -194,15 +194,17 @@ $buildSeconds = [math]::Round($buildSw.Elapsed.TotalSeconds, 2)
 Write-Host "Build took $buildSeconds s"
 
 # --- Run llvm-lit against the llvm-reduce test subset ---
-$litScript = Join-Path $srcDir 'llvm\utils\lit\lit.py'
+# Use the llvm-lit wrapper LLVM's own build generates (same approach as
+# bench.ps1/BenchCommon.psm1's Invoke-LitBench) instead of invoking the
+# lit.py source directly - this avoids guessing which Python interpreter
+# name/PATH entry is correct on a given runner, since the generated
+# wrapper already embeds the right one plus the site config pointing at
+# this exact build tree's freshly built tools.
+$litExe = if ($IsWindows) { Join-Path $binDir 'llvm-lit.cmd' } else { Join-Path $binDir 'llvm-lit' }
+if (-not (Test-Path $litExe)) { throw "Expected llvm-lit wrapper not found at '$litExe' after building the llvm-lit target." }
 $testPath = Join-Path $srcDir 'llvm\test\tools\llvm-reduce'
-# Point lit's substitutions at the freshly built tools via --path.
 $litSw = [System.Diagnostics.Stopwatch]::StartNew()
-$litOutput = & python3 $litScript --time-tests -j $Jobs --path $binDir $testPath 2>&1 | Out-String
-if (-not $litOutput -or $LASTEXITCODE -eq 9009) {
-    # python3 not found under that name on some Windows images - retry with 'python'.
-    $litOutput = & python $litScript --time-tests -j $Jobs --path $binDir $testPath 2>&1 | Out-String
-}
+$litOutput = & $litExe --time-tests -j $Jobs $testPath 2>&1 | Out-String
 $litSw.Stop()
 $litSeconds = [math]::Round($litSw.Elapsed.TotalSeconds, 2)
 
@@ -212,6 +214,12 @@ if ($litOutput -match 'Passed\s*:\s*(\d+)') { $litPass = [int]$Matches[1] }
 if ($litOutput -match 'Failed\s*:\s*(\d+)') { $litFail = [int]$Matches[1] }
 Write-Host "`n-- lit: llvm-reduce suite --"
 Write-Host "  wall $litSeconds s | pass $litPass / fail $litFail / total $litTotal"
+if ($litTotal -eq 0) {
+    # Surface the raw lit output so a misconfiguration is visible in CI
+    # logs rather than silently producing a report full of zeros.
+    Write-Host "-- Raw lit output (no tests discovered - see below for why) --"
+    Write-Host $litOutput
+}
 
 # --- Assemble + write report ---
 if (-not (Test-Path $OutputDir)) { New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null }
