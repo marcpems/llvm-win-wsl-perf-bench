@@ -176,13 +176,13 @@ every individual run's raw JSON/Markdown is kept under
 
 <!-- CI-BENCH-RESULTS:START -->
 
-### Results (2026-09-10_18-54-12 UTC, LLVM @ main)
+### Results (2026-09-14_12-35-02 UTC, LLVM @ main)
 
 | Runner | OS | Arch | CPU | Logical cores | RAM (GB) | Spawn x200 (s) | File x2000 (s) | Build (s) | lit wall (s) | lit P/F/Total |
 |---|---|---|---|---:|---:|---:|---:|---:|---:|---:|
-| linux-x64 | Ubuntu 24.04.5 LTS | X64 | AMD EPYC 9V74 80-Core Processor | 4 | 15.6 | 0.21 | 0.71 | 1982.85 | 25.43 | 166/11/205 |
-| windows-arm64 | Microsoft Windows 11 Enterprise (10.0.26200) | Arm64 | Cobalt 100 | 4 | 16 | 2.63 | 2.32 | 1425.65 | 107.54 | 166/8/205 |
-| windows-x64 | Microsoft Windows Server 2025 Datacenter (10.0.26100) | X64 | AMD EPYC 9V74 80-Core Processor | 4 | 16 | 1.7 | 1.96 | 2132.53 | 58.51 | 165/11/205 |
+| linux-x64 | Ubuntu 24.04.5 LTS | X64 | AMD EPYC 7763 64-Core Processor | 4 | 15.6 | 0.19 | 0.79 | 2074.98 | 25.37 | 166/11/205 |
+| windows-arm64 | Microsoft Windows 11 Enterprise (10.0.26200) | Arm64 | Cobalt 100 | 4 | 16 | 2.62 | 2.1 | 1432.37 | 108.4 | 166/8/205 |
+| windows-x64 | Microsoft Windows Server 2025 Datacenter (10.0.26100) | X64 | Intel(R) Xeon(R) 6973P-C | 4 | 16 | 1.33 | 7.3 | 1556.81 | 49.84 | 165/11/205 |
 
 Full history: [`results/CI-RESULTS.md`](results/CI-RESULTS.md) and [`results/ci-runs/`](results/ci-runs/).
 
