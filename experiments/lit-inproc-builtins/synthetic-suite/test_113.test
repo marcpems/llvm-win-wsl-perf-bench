@@ -1,0 +1,10 @@
+// Synthetic test file #113 - mimics a typical clang/test RUN-line density
+// (avg ~5 RUN lines/file, matching the measured clang/test average) using
+// the stateless wrapper tools targeted by this experiment (true/false/count),
+// plus 'not' as a control (already inlined by upstream lit, so its cost
+// should be identical between baseline and optimized runs).
+// RUN: true
+// RUN: false || true
+// RUN: echo hello-113 | count 1
+// RUN: not false
+// RUN: true
