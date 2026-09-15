@@ -106,6 +106,13 @@ in full for a fuller picture when time allows.
 # Windows-only, and with a Defender exclusion comparison (needs Administrator):
 .\bench.ps1 -Mode Tight -SkipWSL
 .\bench.ps1 -Mode Tight -Defender Compare -WinBuildDir D:\llvm-perf-test-win\build-release -WslDistro Ubuntu-24.04 -WslBuildDir ~/llvm-perf-test-wsl/build-release
+
+# Optimized-path comparison: re-runs the two microbenchmarks a second time
+# under a bundle of mitigations (NTFS content-indexing off, trimmed PATH,
+# and - combined with -Defender Exclude/Compare, needs Administrator - a
+# Defender exclusion + Controlled Folder Access disabled), all reverted
+# immediately afterwards, and reports the actual measured Before/After/Gain%:
+.\bench.ps1 -Mode Tight -Optimize -Defender Compare -WinBuildDir D:\llvm-perf-test-win\build-release -WslDistro Ubuntu-24.04 -WslBuildDir ~/llvm-perf-test-wsl/build-release
 ```
 
 | Parameter | Default | Description |
@@ -116,6 +123,7 @@ in full for a fuller picture when time allows.
 | `-WslBuildDir` | `~/llvm-perf-test-wsl/build-release` | Path (inside WSL) to the build tree; must not be under `/mnt/`. |
 | `-Defender` | `Skip` | `Skip` (report only), `Exclude` (add exclusion), `Compare` (run twice, toggling exclusion, then restore). |
 | `-SkipWSL` | off | Windows-only subset. |
+| `-Optimize` | off | Re-runs the microbenchmarks a second time under NTFS-indexing-off + trimmed-PATH (+ Defender exclusion/Controlled Folder Access off if `-Defender Exclude`/`Compare` is also set) and reports the measured gain. Everything is reverted immediately after measurement. |
 | `-SpawnIterations` | `200` | Iterations for the process-spawn microbenchmark. |
 | `-FileIterations` | `2000` | File count for the filesystem microbenchmark. |
 | `-OutputDir` | `.\results` | Where timestamped `.md`/`.csv` reports are written. |
@@ -126,6 +134,19 @@ in `results/samples/`. The report's Summary section states only measured
 facts — no conclusions; that's left to you or the original investigation
 report. To check whether a change helped, diff CSVs from before/after runs
 on the same machine/mode/commit.
+
+### `-Optimize` measured results (this machine, 3 trials each, `-SkipWSL`)
+
+Spawn microbenchmark (x200): baseline avg 3.10s, optimized avg 3.15s — no
+measurable gain (within run-to-run noise) on this machine, even though
+Defender real-time protection was confirmed active
+(`RealTimeProtectionEnabled=True`) before the exclusion was added.
+Controlled Folder Access was already disabled here, so that mitigation had
+nothing to change. Net finding: on this machine, raw Windows process-
+creation/NTFS overhead is the dominant cost, not Defender/CFA scanning -
+`-Optimize` is left available since Defender/CFA configuration (and its
+resulting impact) varies by machine/policy, but don't assume it will help
+without measuring on your own target machine first.
 
 ## Sample results (from `results/samples/`)
 
