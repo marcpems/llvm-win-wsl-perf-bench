@@ -176,13 +176,13 @@ every individual run's raw JSON/Markdown is kept under
 
 <!-- CI-BENCH-RESULTS:START -->
 
-### Results (2026-09-28_13-44-02 UTC, LLVM @ main)
+### Results (2026-10-05_14-23-49 UTC, LLVM @ main)
 
 | Runner | OS | Arch | CPU | Logical cores | RAM (GB) | Spawn x200 (s) | File x2000 (s) | Build (s) | lit wall (s) | lit P/F/Total |
 |---|---|---|---|---:|---:|---:|---:|---:|---:|---:|
-| linux-x64 | Ubuntu 24.04.5 LTS | X64 | AMD EPYC 7763 64-Core Processor | 4 | 15.6 | 0.2 | 0.97 | 2219.86 | 25.8 | 167/11/206 |
-| windows-arm64 | Microsoft Windows 11 Enterprise (10.0.26200) | Arm64 | Cobalt 100 | 4 | 16 | 2.98 | 2.23 | 1470.8 | 100.69 | 167/8/206 |
-| windows-x64 | Microsoft Windows Server 2025 Datacenter (10.0.26100) | X64 | AMD EPYC 7763 64-Core Processor | 4 | 16 | 1.86 | 1.92 | 2222.72 | 64.23 | 166/11/206 |
+| linux-x64 | Ubuntu 24.04.5 LTS | X64 | Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz | 4 | 15.6 | 0.15 | 0.71 | 2072.17 | 25.4 | 167/11/206 |
+| windows-arm64 | Microsoft Windows 11 Enterprise (10.0.26200) | Arm64 | Cobalt 100 | 4 | 16 | 2.66 | 2.25 | 1545.78 | 108.83 | 167/8/206 |
+| windows-x64 | Microsoft Windows Server 2025 Datacenter (10.0.26100) | X64 | AMD EPYC 7763 64-Core Processor | 4 | 16 | 1.64 | 1.97 | 2159.91 | 62.68 | 166/11/206 |
 
 Full history: [`results/CI-RESULTS.md`](results/CI-RESULTS.md) and [`results/ci-runs/`](results/ci-runs/).
 
