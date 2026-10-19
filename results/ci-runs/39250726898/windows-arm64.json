@@ -1,0 +1,43 @@
+{
+  "Timestamp": "2026-10-19_05-52-28",
+  "Commit": "main",
+  "RunnerLabel": "windows-arm64",
+  "MachineSpec": {
+    "Os": "Windows",
+    "OsVersion": "Microsoft Windows 11 Enterprise (10.0.26200)",
+    "Architecture": "Arm64",
+    "CpuModel": "Cobalt 100",
+    "PhysicalCores": 4,
+    "LogicalCores": 4,
+    "MemoryGB": 16.0,
+    "FreeDiskGB": 123.4,
+    "RunnerName": "GitHub Actions 1000000951",
+    "RunnerLabel": "windows-arm64",
+    "GithubRunId": "39250726898"
+  },
+  "Microbench": {
+    "SpawnIterations": 200,
+    "SpawnSeconds": 2.48,
+    "FileIterations": 2000,
+    "FileSeconds": 2.07
+  },
+  "Build": {
+    "Targets": [
+      "llvm-reduce",
+      "FileCheck",
+      "count",
+      "not",
+      "split-file",
+      "llvm-config"
+    ],
+    "Jobs": 4,
+    "BuildSeconds": 1530.31
+  },
+  "Lit": {
+    "Suite": "LLVM::tools/llvm-reduce",
+    "WallSeconds": 106.22,
+    "Pass": 167,
+    "Fail": 8,
+    "Total": 206
+  }
+}
