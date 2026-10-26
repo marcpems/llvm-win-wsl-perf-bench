@@ -54,6 +54,19 @@
 .PARAMETER SkipWSL
     Run the Windows-only subset (no WSL comparison at all).
 
+.PARAMETER Optimize
+    Off by default. When set, re-runs the two Windows-side microbenchmarks
+    (process spawn, file create/delete) a second time under a bundle of
+    low-risk, fully-reversible mitigations for the overhead they measure -
+    NTFS content-indexing disabled for -WinBuildDir/%TEMP%, a trimmed PATH,
+    and (only if also elevated and -Defender is Exclude/Compare) a Defender
+    exclusion plus Controlled Folder Access temporarily disabled. Every
+    change is undone immediately after the optimized-path measurement
+    (before this script exits), the same way -Defender Compare already
+    restores Defender's original state. The report gets an extra
+    "Optimized-path comparison" section showing Before/After/Gain% instead
+    of guessing at the effect.
+
 .PARAMETER OutputDir
     Directory to write the timestamped .md/.csv result files. Defaults to
     .\results next to this script.
@@ -63,6 +76,9 @@
 
 .EXAMPLE
     .\bench.ps1 -Mode Full -Defender Compare -WinBuildDir D:\llvm-perf-test-win\build-release -WslDistro Ubuntu-24.04 -WslBuildDir ~/llvm-perf-test-wsl/build-release
+
+.EXAMPLE
+    .\bench.ps1 -Mode Tight -Optimize -Defender Compare -WinBuildDir D:\llvm-perf-test-win\build-release -WslDistro Ubuntu-24.04 -WslBuildDir ~/llvm-perf-test-wsl/build-release
 #>
 [CmdletBinding()]
 param(
@@ -79,6 +95,8 @@ param(
     [string]$Defender = 'Skip',
 
     [switch]$SkipWSL,
+
+    [switch]$Optimize,
 
     [int]$SpawnIterations = 200,
 
@@ -158,6 +176,30 @@ $spawnResult = Invoke-SpawnMicrobench -Iterations $SpawnIterations -WslDistro $W
 
 Write-Host "-- Running filesystem microbenchmark ($FileIterations files) --"
 $fileResult = Invoke-FileMicrobench -FileCount $FileIterations -WslDistro $WslDistro -WslBuildDir $WslBuildDir -SkipWSL:$SkipWSL
+
+# --- Optimized-path comparison (opt-in via -Optimize) ---
+# Re-runs the two microbenchmarks a second time under a bundle of
+# low-risk, fully-reversible mitigations, so their actual effect is
+# measured on this run rather than assumed. Everything is undone in the
+# `finally` block before this script does anything else, same convention
+# already used by -Defender Compare above.
+$optimizedSpawnResult = $null
+$optimizedFileResult = $null
+if ($Optimize) {
+    Write-Host "`n-- Optimized path: applying mitigations (indexing off, trimmed PATH$(if ($Defender -in @('Exclude','Compare')) { ', Defender exclusion, Controlled Folder Access off' })) --" -ForegroundColor Cyan
+    $optState = Set-OptimizedEnvironment -Paths @($WinBuildDir, $env:TEMP) -IncludeDefender:($Defender -in @('Exclude', 'Compare'))
+    try {
+        Write-Host "-- Re-running process-spawn microbenchmark (optimized path) --"
+        $optimizedSpawnResult = Invoke-SpawnMicrobench -Iterations $SpawnIterations -WslDistro $WslDistro -SkipWSL:$SkipWSL
+
+        Write-Host "-- Re-running filesystem microbenchmark (optimized path) --"
+        $optimizedFileResult = Invoke-FileMicrobench -FileCount $FileIterations -WslDistro $WslDistro -WslBuildDir $WslBuildDir -SkipWSL:$SkipWSL
+    }
+    finally {
+        Restore-OptimizedEnvironment -State $optState
+        Write-Host "-- Optimized path: all mitigations reverted --" -ForegroundColor Cyan
+    }
+}
 
 # --- Lit-based real test-suite benchmark(s) ---
 $litResults = @()
@@ -250,6 +292,22 @@ foreach ($r in @($spawnResult, $fileResult)) {
     $wslSecDisp = if ($null -ne $r.WslSeconds) { $r.WslSeconds } else { 'n/a' }
     $lines += "| $($r.Test) | $($r.WinSeconds) | $wslSecDisp | $ratio |"
 }
+
+if ($Optimize) {
+    $lines += ""
+    $lines += "## Optimized-path comparison (Windows only)"
+    $lines += ""
+    $lines += "Mitigations applied for the ""Optimized"" column: NTFS content-indexing off for -WinBuildDir/%TEMP%, PATH trimmed to System32 + those paths$(if ($Defender -in @('Exclude','Compare')) { ', Defender exclusion + Controlled Folder Access disabled' }) - all reverted immediately after measurement."
+    $lines += ""
+    $lines += "| Test | Baseline (s) | Optimized (s) | Gain |"
+    $lines += "|---|---:|---:|---:|"
+    foreach ($pair in @(@($spawnResult, $optimizedSpawnResult), @($fileResult, $optimizedFileResult))) {
+        $base = $pair[0]; $opt = $pair[1]
+        $gain = if ($opt.WinSeconds -gt 0) { [math]::Round((1 - ($opt.WinSeconds / $base.WinSeconds)) * 100, 1) } else { 'n/a' }
+        $lines += "| $($base.Test) | $($base.WinSeconds) | $($opt.WinSeconds) | ${gain}% |"
+    }
+}
+
 $lines += ""
 $lines += "## Lit test-suite result(s)"
 $lines += ""
@@ -280,6 +338,12 @@ $lines += "## Summary (measured facts, no analysis)"
 $lines += ""
 $lines += "- Process spawn x${SpawnIterations}: Windows $($spawnResult.WinSeconds)s$(if (-not $SkipWSL) { ", WSL $($spawnResult.WslSeconds)s." } else { '.' })"
 $lines += "- File create+delete x${FileIterations}: Windows $($fileResult.WinSeconds)s$(if (-not $SkipWSL) { ", WSL $($fileResult.WslSeconds)s." } else { '.' })"
+if ($Optimize) {
+    $spawnGain = [math]::Round((1 - ($optimizedSpawnResult.WinSeconds / $spawnResult.WinSeconds)) * 100, 1)
+    $fileGain = [math]::Round((1 - ($optimizedFileResult.WinSeconds / $fileResult.WinSeconds)) * 100, 1)
+    $lines += "- Optimized path, process spawn x${SpawnIterations}: Windows $($optimizedSpawnResult.WinSeconds)s (${spawnGain}% vs baseline)."
+    $lines += "- Optimized path, file create+delete x${FileIterations}: Windows $($optimizedFileResult.WinSeconds)s (${fileGain}% vs baseline)."
+}
 foreach ($r in $litResults) {
     if (-not $SkipWSL) {
         $lines += "- $($r.Suite): Windows wall $($r.WinWallSec)s ($($r.WinPass) passed / $($r.WinFail) failed of $($r.WinTotal)); WSL wall $($r.WslWallSec)s ($($r.WslPass) passed / $($r.WslFail) failed of $($r.WslTotal))."
@@ -298,6 +362,10 @@ Write-Host "`nSaved: $mdPath" -ForegroundColor Green
 $csvRows = @()
 $csvRows += [pscustomobject]@{ Timestamp = $timestamp; Mode = $Mode; Category = 'Microbench'; Test = $spawnResult.Test; WinSeconds = $spawnResult.WinSeconds; WslSeconds = $spawnResult.WslSeconds; WinPass = ''; WinFail = ''; WinTotal = ''; WslPass = ''; WslFail = ''; WslTotal = '' }
 $csvRows += [pscustomobject]@{ Timestamp = $timestamp; Mode = $Mode; Category = 'Microbench'; Test = $fileResult.Test; WinSeconds = $fileResult.WinSeconds; WslSeconds = $fileResult.WslSeconds; WinPass = ''; WinFail = ''; WinTotal = ''; WslPass = ''; WslFail = ''; WslTotal = '' }
+if ($Optimize) {
+    $csvRows += [pscustomobject]@{ Timestamp = $timestamp; Mode = $Mode; Category = 'MicrobenchOptimized'; Test = $optimizedSpawnResult.Test; WinSeconds = $optimizedSpawnResult.WinSeconds; WslSeconds = $optimizedSpawnResult.WslSeconds; WinPass = ''; WinFail = ''; WinTotal = ''; WslPass = ''; WslFail = ''; WslTotal = '' }
+    $csvRows += [pscustomobject]@{ Timestamp = $timestamp; Mode = $Mode; Category = 'MicrobenchOptimized'; Test = $optimizedFileResult.Test; WinSeconds = $optimizedFileResult.WinSeconds; WslSeconds = $optimizedFileResult.WslSeconds; WinPass = ''; WinFail = ''; WinTotal = ''; WslPass = ''; WslFail = ''; WslTotal = '' }
+}
 foreach ($r in $litResults) {
     $csvRows += [pscustomobject]@{ Timestamp = $timestamp; Mode = $Mode; Category = 'LitSuite'; Test = $r.Suite; WinSeconds = $r.WinWallSec; WslSeconds = $r.WslWallSec; WinPass = $r.WinPass; WinFail = $r.WinFail; WinTotal = $r.WinTotal; WslPass = $r.WslPass; WslFail = $r.WslFail; WslTotal = $r.WslTotal }
 }

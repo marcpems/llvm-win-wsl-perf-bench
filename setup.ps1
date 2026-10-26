@@ -182,11 +182,19 @@ if ($WslBuildDir -match '^/mnt/') {
     Fail "-WslBuildDir '$WslBuildDir' is under /mnt/ (a Windows drive mounted into WSL via drvfs/9p)." "This benchmark intentionally requires the WSL build tree to live on WSL's native filesystem (e.g. under `$HOME), not a mounted NTFS drive, so filesystem timings are a fair Linux-native comparison. Use a path under `$HOME instead (this is the default)."
 }
 
+# -DBUILD_SHARED_LIBS=OFF / -DLLVM_BUILD_LLVM_DYLIB=OFF are CMake/LLVM's
+# own defaults when omitted, so this doesn't change what actually gets
+# built - they're listed explicitly so the statically-linked tools this
+# benchmark relies on (fewer DLLs to resolve per process spawn, part of
+# the Windows-side spawn-overhead mitigations) stay guaranteed even if
+# LLVM's upstream defaults ever change.
 $cmakeCommonArgs = @(
     '-DLLVM_ENABLE_PROJECTS=clang;lld;clang-tools-extra',
     '-DLLVM_ENABLE_RUNTIMES=compiler-rt',
     '-DLLVM_INCLUDE_EXAMPLES=OFF',
-    '-DLLVM_INCLUDE_BENCHMARKS=OFF'
+    '-DLLVM_INCLUDE_BENCHMARKS=OFF',
+    '-DBUILD_SHARED_LIBS=OFF',
+    '-DLLVM_BUILD_LLVM_DYLIB=OFF'
 )
 
 # ---------------------------------------------------------------------------

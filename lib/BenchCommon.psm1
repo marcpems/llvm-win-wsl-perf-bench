@@ -24,13 +24,124 @@ function Test-IsAdministrator {
 }
 
 function Invoke-Wsl {
-    <# Runs a bash -lc command string in the given WSL distro and returns stdout as text. #>
+    <#
+        Runs a command string in the given WSL distro and returns stdout as text.
+        Uses a non-login shell ('bash -c', not 'bash -lc') so every one of the
+        many WSL-side calls this harness makes doesn't pay the extra cost of
+        sourcing /etc/profile + ~/.bash_profile/~/.bashrc on every invocation.
+        $HOME/$PATH etc. are still populated by the system for non-login
+        shells, so this changes nothing functionally - it just removes a
+        repeated, unnecessary per-call overhead (an "avoid extra hops" style
+        optimization, same category as avoiding lit's cmd.exe shell fallback).
+    #>
     param(
         [Parameter(Mandatory)][string]$Distro,
         [Parameter(Mandatory)][string]$Command
     )
-    $out = & wsl.exe -d $Distro -- bash -lc $Command 2>&1
+    $out = & wsl.exe -d $Distro -- bash -c $Command 2>&1
     return ($out -join "`n")
+}
+
+function Set-OptimizedEnvironment {
+    <#
+        Applies a bundle of low-risk, fully-reversible Windows-side
+        mitigations for process-spawn/filesystem overhead, for the
+        duration of a benchmark run only. Every change made here MUST be
+        undone by a matching Restore-OptimizedEnvironment call (callers
+        should use try/finally) - this follows the same "opt-in, always
+        restored afterwards" convention bench.ps1's existing
+        -Defender Compare mode already uses.
+
+        Mitigations applied (each individually skipped if inapplicable):
+          1. NTFS content-indexing turned off for -Paths (no admin needed).
+          2. PATH trimmed to only System32 + -Paths for this process only
+             (removes per-spawn PATH-search overhead from unrelated entries).
+          3. (Only if -IncludeDefender and running elevated with Defender's
+             PowerShell module present) A Defender exclusion added for
+             -Paths, and Controlled Folder Access temporarily disabled -
+             both are exactly what the existing -Defender Exclude/Compare
+             flag already does for exclusions; this adds Controlled Folder
+             Access on top, since it also intercepts every write, same as
+             real-time scanning.
+
+        Returns a state object; pass it to Restore-OptimizedEnvironment
+        when done to put everything back exactly as found.
+    #>
+    param(
+        [Parameter(Mandatory)][string[]]$Paths,
+        [switch]$IncludeDefender
+    )
+
+    $state = [ordered]@{
+        OriginalPath                     = $env:PATH
+        IndexingAttributeChanged         = @()
+        DefenderExclusionsAdded          = @()
+        ControlledFolderAccessWasEnabled = $false
+        ControlledFolderAccessChanged    = $false
+    }
+
+    # 1. Turn off NTFS content indexing for the target paths.
+    foreach ($p in $Paths) {
+        if (Test-Path $p) {
+            $item = Get-Item $p -Force
+            if (-not ($item.Attributes -band [System.IO.FileAttributes]::NotContentIndexed)) {
+                $item.Attributes = $item.Attributes -bor [System.IO.FileAttributes]::NotContentIndexed
+                $state.IndexingAttributeChanged += $p
+            }
+        }
+    }
+
+    # 2. Trim PATH to just what's needed to resolve system tools + the paths under test.
+    $neededDirs = @($env:SystemRoot, (Join-Path $env:SystemRoot 'System32')) + $Paths
+    $env:PATH = ($neededDirs | Select-Object -Unique) -join ';'
+
+    # 3. Defender exclusion + Controlled Folder Access - elevated + Defender module only.
+    if ($IncludeDefender) {
+        if (-not (Test-IsAdministrator)) {
+            Write-Host "  [optimized-path] Skipping Defender/Controlled Folder Access changes: not running elevated." -ForegroundColor Yellow
+        }
+        elseif (-not (Get-Command Get-MpPreference -ErrorAction SilentlyContinue)) {
+            Write-Host "  [optimized-path] Skipping Defender/Controlled Folder Access changes: Defender module not present." -ForegroundColor Yellow
+        }
+        else {
+            $prefs = Get-MpPreference
+            foreach ($p in $Paths) {
+                $already = $prefs.ExclusionPath | Where-Object { $_ -and $p.StartsWith($_, [StringComparison]::OrdinalIgnoreCase) }
+                if (-not $already) {
+                    Add-MpPreference -ExclusionPath $p
+                    $state.DefenderExclusionsAdded += $p
+                }
+            }
+            $state.ControlledFolderAccessWasEnabled = ($prefs.EnableControlledFolderAccess -ne 0 -and $prefs.EnableControlledFolderAccess -ne 'Disabled')
+            if ($state.ControlledFolderAccessWasEnabled) {
+                Set-MpPreference -EnableControlledFolderAccess Disabled
+                $state.ControlledFolderAccessChanged = $true
+            }
+        }
+    }
+
+    return $state
+}
+
+function Restore-OptimizedEnvironment {
+    <# Reverses every change Set-OptimizedEnvironment made, using the state object it returned. #>
+    param([Parameter(Mandatory)]$State)
+
+    $env:PATH = $State.OriginalPath
+
+    foreach ($p in $State.IndexingAttributeChanged) {
+        if (Test-Path $p) {
+            $item = Get-Item $p -Force
+            $item.Attributes = $item.Attributes -band (-bnot [System.IO.FileAttributes]::NotContentIndexed)
+        }
+    }
+
+    if ($State.ControlledFolderAccessChanged) {
+        Set-MpPreference -EnableControlledFolderAccess Enabled
+    }
+    foreach ($p in $State.DefenderExclusionsAdded) {
+        Remove-MpPreference -ExclusionPath $p
+    }
 }
 
 function Get-DefaultWslDistro {
