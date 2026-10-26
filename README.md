@@ -231,3 +231,31 @@ representative. Command-line only, no GUI/prompts. Windows and WSL are
 capped to the same shared lit `-j` value (auto-detected from logical cores
 and memory on each side) so a fast run isn't just "whichever side has more
 cores".
+
+### On `not`-wrapped `RUN:` lines (quantified, not removed)
+
+A count of `clang/test` at `llvm/llvm-project@main` found 4,818 `RUN:`
+lines that wrap their command in lit's `not` tool (e.g.
+`RUN: not %clang_cc1 ... 2>&1 | FileCheck %s`) out of 130,875 total `RUN:`
+lines. `not` is itself a real child process, so each of those lines pays
+one full extra process-creation cost on top of the command being tested.
+
+Using this repo's own measured per-spawn costs (`Process spawn x200`):
+Windows ≈15.5ms/spawn, WSL ≈0.6ms/spawn (native `fork`/`exec`, excluding
+`wsl.exe` dispatch overhead) - purely the `not` wrapper accounts for
+roughly **~75s of Windows wall time vs ~3s on WSL** across a full
+`clang/test` run (4,818 × 15.5ms vs 4,818 × 0.6ms), i.e. a real but modest
+slice (~2%) of the multi-thousand-second `check-clang` gap this repo
+measures.
+
+**Deliberately not changed:** removing `not` from a `RUN:` line changes
+what the test verifies (it inverts the expected exit code - "this command
+must fail"), so blanket-removing it across 4,818 sites in `llvm-project`'s
+own test suite would silently break negative-testing coverage; that suite
+also isn't owned/reviewed by this repo. The correctness-preserving fix
+would be making `not` an internal builtin of lit's own shell interpreter
+(`ShUtil`, alongside its existing `true`/`false`/`:`/`echo` builtins) so it
+stops spawning a real child process while keeping identical semantics -
+that's a small, mechanically contained change, but it's an upstream
+`llvm-project`/`lit` contribution needing real code review there, not
+something this benchmarking repo can safely do unreviewed.
