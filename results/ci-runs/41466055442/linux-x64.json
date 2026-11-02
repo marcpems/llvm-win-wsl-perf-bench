@@ -1,0 +1,43 @@
+{
+  "Timestamp": "2026-11-02_15-34-31",
+  "Commit": "main",
+  "RunnerLabel": "linux-x64",
+  "MachineSpec": {
+    "Os": "Linux",
+    "OsVersion": "Ubuntu 24.04.5 LTS",
+    "Architecture": "X64",
+    "CpuModel": "AMD EPYC 9V74 80-Core Processor",
+    "PhysicalCores": 2,
+    "LogicalCores": 4,
+    "MemoryGB": 15.6,
+    "FreeDiskGB": 85.6,
+    "RunnerName": "GitHub Actions 1000001474",
+    "RunnerLabel": "linux-x64",
+    "GithubRunId": "41466055442"
+  },
+  "Microbench": {
+    "SpawnIterations": 200,
+    "SpawnSeconds": 0.2,
+    "FileIterations": 2000,
+    "FileSeconds": 0.83
+  },
+  "Build": {
+    "Targets": [
+      "llvm-reduce",
+      "FileCheck",
+      "count",
+      "not",
+      "split-file",
+      "llvm-config"
+    ],
+    "Jobs": 4,
+    "BuildSeconds": 2245.64
+  },
+  "Lit": {
+    "Suite": "LLVM::tools/llvm-reduce",
+    "WallSeconds": 25.69,
+    "Pass": 168,
+    "Fail": 11,
+    "Total": 207
+  }
+}
