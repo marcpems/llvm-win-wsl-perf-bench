@@ -1,0 +1,43 @@
+{
+  "Timestamp": "2026-11-09_15-58-38",
+  "Commit": "main",
+  "RunnerLabel": "windows-x64",
+  "MachineSpec": {
+    "Os": "Windows",
+    "OsVersion": "Microsoft Windows Server 2025 Datacenter (10.0.26100)",
+    "Architecture": "X64",
+    "CpuModel": "AMD EPYC 9V74 80-Core Processor",
+    "PhysicalCores": 2,
+    "LogicalCores": 4,
+    "MemoryGB": 16.0,
+    "FreeDiskGB": 219.9,
+    "RunnerName": "GitHub Actions 1000001503",
+    "RunnerLabel": "windows-x64",
+    "GithubRunId": "42643608665"
+  },
+  "Microbench": {
+    "SpawnIterations": 200,
+    "SpawnSeconds": 1.26,
+    "FileIterations": 2000,
+    "FileSeconds": 2.86
+  },
+  "Build": {
+    "Targets": [
+      "llvm-reduce",
+      "FileCheck",
+      "count",
+      "not",
+      "split-file",
+      "llvm-config"
+    ],
+    "Jobs": 4,
+    "BuildSeconds": 1659.26
+  },
+  "Lit": {
+    "Suite": "LLVM::tools/llvm-reduce",
+    "WallSeconds": 49.34,
+    "Pass": 167,
+    "Fail": 11,
+    "Total": 207
+  }
+}
